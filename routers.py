@@ -18,7 +18,7 @@ app = FastAPI(
 
 service_status = 1
 request_count = 0
-startup_time = datetime.utcnow()
+startup_time = datetime.now(datetime.timezone.utc)
 
 async_results = {}
 
@@ -37,12 +37,8 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-####GET REQUESTS####
+#### PARSING ####
 
-@app.get("/")
-def root():
-    uptime = (datetime.utcnow() - startup_time).total_seconds()
-    return {"status": service_status, "request_count": request_count, "uptime_seconds": uptime}
 
 def _map_asteroid(raw: Dict[str, Any]) -> Dict[str, Any]:
     # Provide safe numeric parsing helpers
@@ -70,6 +66,16 @@ def _map_asteroid(raw: Dict[str, Any]) -> Dict[str, Any]:
     }
     return mapped
 
+
+
+####GET REQUESTS####
+
+@app.get("/")
+def root():
+    uptime = (datetime.now(datetime.timezone.utc) - startup_time).total_seconds()
+    return {"status": service_status, "request_count": request_count, "uptime_seconds": uptime}
+
+
 @app.get("/asteroids", response_model=None)
 def asteroids_catalog(start: int = 0, limit: int = 200):
     if limit <= 0:
@@ -90,6 +96,7 @@ def asteroid_data(obj_id: str):
         raise HTTPException(status_code=404, detail="Asteroid not found")
     return _map_asteroid(raw)
 
+
 @app.post("/simulate/{obj_id}")
 async def simulate(obj_id: str, preview: bool = True):
     raw = api.NEO_by_id(NEO, obj_id)
@@ -97,41 +104,18 @@ async def simulate(obj_id: str, preview: bool = True):
         raise HTTPException(status_code=404, detail="Asteroid not found")
     if preview:
         points = sim.static_orbit(raw)
-        # Map points list of (x,y,z) => trajectory object list
-        traj = [{"position": {"x": p[0], "y": p[1], "z": p[2]}} for p in points]
-        return {
-            "asteroid_id": obj_id,
-            "asteroid_trajectory": traj,
-            "earth_trajectory": [],
-            "impact_estimate": {"will_impact": False},
-        }
+        return {"asteroid_trajectory": points}
+    
+    else:
+        job_id = random.randint(10000, 99999)
+        async_results[job_id] = {"done": False, "data": None}
+        asyncio.create_task(sim.full_sim())
+        return {"job_id": str(job_id)}
 
-    job_id = random.randint(10000, 99999)
-    async_results[job_id] = {"done": False, "data": None}
-
-    async def run_full():
-        try:
-            res = await sim.full_sim(raw)
-            # Expect res already shaped; if None produce placeholder
-            if res is None:
-                points = sim.static_orbit(raw)
-                res = {
-                    "asteroid_id": obj_id,
-                    "asteroid_trajectory": [{"position": {"x": p[0], "y": p[1], "z": p[2]}} for p in points],
-                    "earth_trajectory": [],
-                    "impact_estimate": {"will_impact": False},
-                }
-            async_results[job_id] = {"done": True, "data": res}
-        except Exception as e:
-            async_results[job_id] = {"done": True, "data": {"error": str(e)}}
-
-    asyncio.create_task(run_full())
-    return {"job_id": str(job_id)}
 
 @app.get("/reports/{job_id}")
 def get_report(job_id: str, response: Response):
-    # job ids stored as int keys originally -> unify string storage
-    # Ensure key checks for both str/int
+    # job ids stored as int keys originally
     job = async_results.get(job_id)
     if job is None and job_id.isdigit():
         job = async_results.get(int(job_id))
@@ -140,8 +124,8 @@ def get_report(job_id: str, response: Response):
     if not job.get("done"):
         response.status_code = status.HTTP_202_ACCEPTED
         return {"status": "processing"}
+    
     data = job.get("data")
-    # Remove once delivered
     try:
         del async_results[job_id]
     except KeyError:
@@ -158,6 +142,8 @@ def impact_sim(data: dict):
     result = sim.impact(data)
     return result
     
+
+
 ### if run directly ###
 
 if __name__ == "__main__":
