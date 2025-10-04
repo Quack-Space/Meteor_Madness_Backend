@@ -187,27 +187,6 @@ def plot_points_3d(points, title="Orbit points", outpath="orbit_plot.png"):
         plt.close(fig)
 
 
-if __name__ == "__main__":
-    # quick example / smoke test
-    # Example: low Earth orbit ~7000 km semi-major, small eccentricity
-    a = 149.6e6
-    e = 0.01671123
-    i = 1.578690
-    raan = 174.9
-    argp = 288.1
-
-    pts = generate_ellipse_points_shrf(a, e, i_deg=i, raan_deg=raan, argp_deg=argp, num_points=1000) #delta_nu_deg=30.0)
-    print(f"Generated {len(pts)} points.")
-
-    out_file = "orbit_shrf.png"
-    plot_points_3d(pts, title="SHRF Orbit", outpath=out_file)
-    print(f"Saved plot to {out_file}")
-
-
-
-
-
-
 
 
 ##############################################################################################################################
