@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import datetime, timezone
 from fastapi import FastAPI, HTTPException, Response, status
 from fastapi.middleware.cors import CORSMiddleware
 import random
@@ -18,7 +18,7 @@ app = FastAPI(
 
 service_status = 1
 request_count = 0
-startup_time = datetime.now(datetime.timezone.utc)
+startup_time = datetime.now(timezone.utc)
 
 async_results = {}
 
@@ -72,7 +72,7 @@ def _map_asteroid(raw: Dict[str, Any]) -> Dict[str, Any]:
 
 @app.get("/")
 def root():
-    uptime = (datetime.now(datetime.timezone.utc) - startup_time).total_seconds()
+    uptime = (datetime.now(timezone.utc) - startup_time).total_seconds()
     return {"status": service_status, "request_count": request_count, "uptime_seconds": uptime}
 
 
