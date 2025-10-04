@@ -1,12 +1,11 @@
 import requests
 import json
 
-url = "https://ssd-api.jpl.nasa.gov/sbdb_query.api"
+## NEO db ##
 
 def initiate_NEO():
-    basic_params = "spkid,full_name,pdes,name,neo,pha,moid,e,a,q,i,om,w,ma,tp,per,n,ad,H,diameter,extent,GM,density,rot_per,albedo"
-    display_params = ",source,producer,first_obs,last_obs,spec_T,spec_B"
-    advanced_params = ",epoch,equinox,soln_date"
+
+    url = "https://ssd-api.jpl.nasa.gov/sbdb_query.api"
 
     keys = [
         "spkid", "full_name", "pdes", "name", "neo", "pha", "moid", "e", "a", "q", "i", 
@@ -16,7 +15,7 @@ def initiate_NEO():
     ]
 
     params = {
-        "fields": basic_params+display_params+advanced_params,
+        "fields": ",".join(keys),
         "sb-group": "pha",
         "sb-kind": "a",
     }
@@ -31,6 +30,7 @@ def initiate_NEO():
     return data
 
 def Neo_index():
+    url = "https://ssd-api.jpl.nasa.gov/sbdb_query.api"
     params = {"fields": "spkid","sb-group": "pha","sb-kind": "a",}
     resp = requests.get(url, params=params)
     data = resp.json()
@@ -49,3 +49,4 @@ def NEO_by_id(db, obj_id):
     asteroid = next((item for item in db if item["spkid"] == obj_id), None)
     return asteroid
 
+#################################################################################
