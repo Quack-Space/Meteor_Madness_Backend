@@ -1,9 +1,5 @@
-from fastapi.middleware.cors import CORSMiddleware
-from fastapi import HTTPException
-from pydantic import BaseModel
 from datetime import datetime, timedelta
 from fastapi import FastAPI
-from fastapi import Depends
 from fastapi import status
 import random
 import asyncio

@@ -216,7 +216,7 @@ def atm_drag(t0, state, k, R, C_D, A_over_m, rho):
 
 #radiation pressure acceleration
 def rad_pressure(t0, state, k, r, C_R, A_over_m, Wdivc_s, star):
-    rad_p = policore.perturbations.radiation_pressure(t0, state, k, R, C_R, A_over_m, Wdivc_s, star)
+    rad_p = policore.perturbations.radiation_pressure(t0, state, k, r, C_R, A_over_m, Wdivc_s, star)
     return rad_p
 
 #final velocity (V entry atm)
