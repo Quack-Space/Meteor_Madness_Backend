@@ -1,7 +1,6 @@
-#example_var_name
 
-#from poliastro import core as poliore
-import poliastro
+from poliastro import core as policore
+import math
 import numpy as np
 import utm
 import matplotlib
@@ -195,11 +194,6 @@ def plot_points_3d(points, title="Orbit points", outpath="orbit_plot.png"):
 
 
 
-
-
-from poliastro import core as policore
-import numpy as np
-import math
 
 
 #J2 perturbations
