@@ -25,6 +25,10 @@ startup_time = datetime.now()
 
 async_results = {}
 
+
+###START DB###
+NEO = api.initiate_NEO()
+
 ####GET REQUESTS####
 
 @app.get("/")
@@ -34,7 +38,7 @@ def root():
 
 @app.get("/asteroids/")
 def asteroids_catalog(start: int, offset: int):
-    catalog = api.NEO_catalog(start, offset)
+    catalog = api.NEO_catalog(NEO, start, offset)
     return  {"asteroids": catalog}
 
 @app.get("/asteroids/id/{obj_id}")
