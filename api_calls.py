@@ -25,8 +25,32 @@ def initiate_NEO():
     recived = resp.json()
     #print(recived)
     elem = recived["data"]
-    dtype = lambda x: str(x).strip() if  not str(x).replace(".", "", 1).replace("-", "", 1).isdigit() else float(x)
-    data = {l[0]: {keys[i]:  dtype(l[i]) for i in range(len(keys))} for l in elem}
+
+    def to_number(val):
+        s = str(val).strip()
+        # Accept plain int or float pattern but skip if leading zeros weird or too large to matter
+        try:
+            if s.replace('.', '', 1).replace('-', '', 1).isdigit():
+                return float(s)
+        except Exception:
+            pass
+        return None
+
+    data = {}
+    for row in elem:
+        raw_id = str(row[0]).strip()
+        # Ensure no trailing .0 artifacts (e.g., '2000433.0')
+        if raw_id.endswith('.0') and raw_id.replace('.0', '').isdigit():
+            raw_id = raw_id[:-2]
+        entry = {}
+        for i, k in enumerate(keys):
+            val = row[i]
+            if k == 'spkid':
+                entry[k] = raw_id  # keep canonical id string
+                continue
+            num_val = to_number(val)
+            entry[k] = num_val if num_val is not None else (str(val).strip() if val not in (None, '') else None)
+        data[raw_id] = entry
     return data
 
 def Neo_index():
@@ -41,13 +65,22 @@ def Neo_index():
     return index
 
 
-def NEO_catalog(db, start, offset):
-    return db[start:start+offset]
+def NEO_catalog(db, start: int, offset: int):
+    """Return a slice of the NEO catalog.
 
+    db: dict keyed by spkid -> asteroid data dict
+    start: starting index in the ordered key list
+    offset: number of records to return
+    """
+    if offset <= 0:
+        return []
+    keys = list(db.keys())
+    slice_keys = keys[start:start+offset]
+    return [db[k] for k in slice_keys]
 
 def NEO_by_id(db, obj_id):
-    asteroid = next((item for item in db if item["spkid"] == obj_id), None)
-    return asteroid
+    """Lookup asteroid by spkid directly in dict (returns None if missing)."""
+    return db.get(obj_id)
 
 
 #################################################################################
