@@ -26,51 +26,23 @@ def initiate_NEO():
     #print(recived)
     elem = recived["data"]
 
-    def to_number(val):
+    def dtype(val):
         s = str(val).strip()
-        # Accept plain int or float pattern but skip if leading zeros weird or too large to matter
-        try:
-            if s.replace('.', '', 1).replace('-', '', 1).isdigit():
-                return float(s)
-        except Exception:
-            pass
-        return None
+        if s.isdigit():
+            s = int(s)
+        elif s.replace('.', '', 1).replace('-', '', 1).isdigit():
+            s =  float(s)
+        return s
 
-    data = {}
-    for row in elem:
-        raw_id = str(row[0]).strip()
-        # Ensure no trailing .0 artifacts (e.g., '2000433.0')
-        if raw_id.endswith('.0') and raw_id.replace('.0', '').isdigit():
-            raw_id = raw_id[:-2]
-        entry = {}
-        for i, k in enumerate(keys):
-            val = row[i]
-            if k == 'spkid':
-                entry[k] = raw_id  # keep canonical id string
-                continue
-            num_val = to_number(val)
-            entry[k] = num_val if num_val is not None else (str(val).strip() if val not in (None, '') else None)
-        data[raw_id] = entry
+    data = {l[0]: {k:  dtype(val) for k, val in zip(keys, l)} for l in elem}
+
     return data
-
-def Neo_index():
-    url = "https://ssd-api.jpl.nasa.gov/sbdb_query.api"
-    params = {"fields": "spkid","sb-group": "pha","sb-kind": "a",}
-    resp = requests.get(url, params=params)
-    data = resp.json()
-    #data = json.load(data)
-    index = [x[0] for x in data["data"]]
-    print(index)
-    print(len(index))
-    return index
-
 
 def NEO_catalog(db, start: int, offset: int):
     """Return a slice of the NEO catalog.
-
-    db: dict keyed by spkid -> asteroid data dict
-    start: starting index in the ordered key list
-    offset: number of records to return
+            db: dict keyed by spkid
+            start: starting index in the ordered key list
+            offset: number of records to return
     """
     if offset <= 0:
         return []
@@ -122,24 +94,26 @@ def get_rock_type(lat, lon): #officialy, it should be called "GLiM Class" not ro
     return attrs.get("xx_Description") or attrs.get("Litho")
 
 
-#costante di conversione energia cinetica e suoi possibili valori
-k=0
-K_LOOKUP = {
-    "Unconsolidated sediments": 3e-4,
-    "Siliciclastic sedimentary rocks": 5e-4,
-    "Mixed sedimentary rocks": 5e-4,
-    "Carbonate sedimentary rocks": 7e-4,
-    "Metamorphics": 1e-3,
-    "Acid/Intermediate/Basic plutonic rocks": 1e-3,
-    "Acid/Intermediate/Basic volcanic rocks": 1e-3,
-    "Pyroclastics": 7e-4,
-    "Evaporites": 5e-4,
-    "Ice and Glaciers": 5e-5,
-    "Water Bodies": 1e-4,   
-}
 
 #ottieni k per determinate lat e lon
 def get_k_constant(lat,lon):
+
+    #costante di conversione energia cinetica e suoi possibili valori
+    k=0
+    K_LOOKUP = {
+        "Unconsolidated sediments": 3e-4,
+        "Siliciclastic sedimentary rocks": 5e-4,
+        "Mixed sedimentary rocks": 5e-4,
+        "Carbonate sedimentary rocks": 7e-4,
+        "Metamorphics": 1e-3,
+        "Acid/Intermediate/Basic plutonic rocks": 1e-3,
+        "Acid/Intermediate/Basic volcanic rocks": 1e-3,
+        "Pyroclastics": 7e-4,
+        "Evaporites": 5e-4,
+        "Ice and Glaciers": 5e-5,
+        "Water Bodies": 1e-4,   
+    }
+
     #altitudine punto
     elevation = get_elevation(lat, lon)
     # rock type 👍
