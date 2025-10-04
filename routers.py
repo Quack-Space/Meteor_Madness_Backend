@@ -37,12 +37,12 @@ def asteroids_catalog(start: int, offset: int):
     catalog = api.NEO_catalog(start, offset)
     return  {"asteroids": catalog}
 
-@app.get("/asteroids/id/")
+@app.get("/asteroids/id/{obj_id}")
 def asteroid_data(obj_id: str):
     data = api.NEO_by_id(obj_id)
     return {"data": data}
 
-@app.get("/simulate/")
+@app.get("/simulate/{obj_id}")
 async def full_sim(obj_id: str, preview: bool):
     if preview:
         data = api.NEO_by_id(obj_id, job_id=None)
