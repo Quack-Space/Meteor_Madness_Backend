@@ -6,8 +6,16 @@ def static_orbit(asteroid):
                                           num_points=1000)
      return pts
 
-def impact():
-    pass
+def impact(data):
+    #m, 2r, v, rho, alpha, latlon, terrain
+    t_type = None
+    diameter, depth = m.crater_dimensions_advanced(data["m"], data["v"], data["d"],
+                                                   data["rho"], data["alpha"],
+                                                   t_type)
+    casualties = None
+    sismic_magnitude = None
 
-async def full_sim():
+    return {"2r": diameter, "depth": depth}
+
+async def full_sim(data):
     pass
