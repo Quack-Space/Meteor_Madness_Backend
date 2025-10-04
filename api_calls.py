@@ -1,5 +1,11 @@
 import requests
 import json
+import numpy as np
+import rasterio
+from rasterio.mask import mask
+from shapely.geometry import Point, mapping
+from shapely.ops import transform
+import pyproj
 
 ## NEO db ##
 
@@ -127,3 +133,55 @@ def get_k_constant(lat,lon):
         #dev reply: nigga sybau
         k = K_LOOKUP.get(rock_type, 1e-3) 
     return k
+
+
+
+
+
+
+
+#####################################################################################################################
+
+
+
+# Estimate population within a radius from a point using GHS-POP raster data
+# and calculate estimated deaths given a mortality rate (phi).
+#dependencies: numpy rasterio shapely pyproj
+
+def make_geodesic_circle(lat, lon, radius_km):
+    # AEQD needs an ellipsoid/sphere defined → add +datum=WGS84
+    wgs84 = pyproj.CRS("EPSG:4326")
+    aeqd  = pyproj.CRS.from_proj4(
+        f"+proj=aeqd +lat_0={lat} +lon_0={lon} +datum=WGS84 +units=m +no_defs"
+    )
+    fwd  = pyproj.Transformer.from_crs(wgs84, aeqd, always_xy=True).transform
+    back = pyproj.Transformer.from_crs(aeqd,  wgs84, always_xy=True).transform
+    circle = transform(fwd, Point(lon, lat)).buffer(radius_km * 1000.0)
+    return transform(back, circle)  # polygon back in WGS84
+
+def pop_within_radius_ghs(tif_path, lat, lon, radius_km):
+    circle_wgs84 = make_geodesic_circle(lat, lon, radius_km)
+    with rasterio.open(tif_path) as src:
+        # Reproject circle to the raster CRS (54009)
+        to_raster = pyproj.Transformer.from_crs("EPSG:4326", src.crs, always_xy=True).transform
+        circle_raster = transform(to_raster, circle_wgs84)
+
+        # Clip + read pixels inside the circle
+        out, _ = mask(src, [mapping(circle_raster)], crop=True)
+        arr = out[0].astype(float)
+
+        # Handle NoData
+        if src.nodata is not None:
+            arr[arr == src.nodata] = 0
+        arr[arr < 0] = 0
+
+        # Sum = people in that area
+        return float(np.nansum(arr))
+
+
+#takes in lat, lon, radius in km, and phi (mortality rate), returns estimated deaths
+def deaths_within_radius(lat, lon, radius, phi):
+    tif = r"Resources\GHS_POP_E2030_GLOBE_R2023A_54009_1000_V1_0.tif"
+    pop = pop_within_radius_ghs(tif, lat, lon, radius)
+    return pop * phi
+
