@@ -26,7 +26,9 @@ async_results = {}
 ###START DB###
 NEO = api.initiate_NEO()
 
-# CORS (frontend likely on Vite default http://localhost:5173)
+### CORS ###
+ 
+# (frontend likely on Vite default http://localhost:5173)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["http://localhost:5173", "http://127.0.0.1:5173"],
@@ -72,12 +74,11 @@ def _map_asteroid(raw: Dict[str, Any]) -> Dict[str, Any]:
 def asteroids_catalog(start: int = 0, limit: int = 200):
     if limit <= 0:
         raise HTTPException(status_code=400, detail="limit must be > 0")
-    keys: List[str] = list(NEO.keys())
-    slice_keys = keys[start:start+limit]
-    items = [_map_asteroid(NEO[k]) for k in slice_keys]
+    result = api.NEO_catalog(NEO, start, limit)
+    items = [_map_asteroid(x) for x in result]
     return {
         "asteroids": items,
-        "total": len(keys),
+        "total": len(items),
         "limit": limit,
         "offset": start,
     }
@@ -157,6 +158,8 @@ def impact_sim(data: dict):
     result = sim.impact(data)
     return result
     
+### if run directly ###
+
 if __name__ == "__main__":
     import uvicorn
     # Bind explicitly to localhost for dev convenience
