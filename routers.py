@@ -46,22 +46,24 @@ def asteroid_data(obj_id: str):
 async def full_sim(obj_id: str, preview: bool):
     if preview:
         data = api.NEO_by_id(obj_id, job_id=None)
-        result = sim.full(data)
+        result = sim.static_orbit(data)
         return result
     else:
         job_id = random.randint(00000, 99999)
-        asyncio.create_task(sim(data, job_id))
+        asyncio.create_task(sim.full_sim(data, job_id))
         return {"job_id": job_id}
 
 @app.get("simulate/results/{job_id}")
 def get_results(job_id: int):
     result = async_results[job_id]["data"]
     status = async_results[job_id]["status"]
+    if status == True:
+        del async_results[job_id]
     return {"status": status, "result": result}
 
 ####POST REQUESTS####
 
-@app.post("/simulate-impact")
+@app.post("/simulate_impact")
 def impact_sim(data: dict):
     result = sim.impact(data)
     return result
