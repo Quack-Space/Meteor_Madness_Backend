@@ -1,5 +1,6 @@
-
+import poliastro.core as policore
 import numpy as np
+import math
 import utm
 import matplotlib
 matplotlib.use('Agg')
@@ -294,7 +295,7 @@ def true_anomaly_to_time_since_periapsis(a, e, nu_deg, mu=mu_Sun):
 
 #Returns: list of (x,y,z) tuples in SHRF frame (meters)
 
-def generate_ellipse_timed_points_shrf(a, e, i_deg=0.0, raan_deg=0.0, argp_deg=0.0,start_nu_deg=0.0, mu = mu_Sun, delta_nu_deg=None,num_points=None, epoch=None):
+def generate_ellipse_timed_points_shrf(a, e, i_deg=0.0, raan_deg=0.0, argp_deg=0.0,start_nu_deg=0.0, mu = mu_Sun, delta_nu_deg=None, num_points=None, epoch=None):
     if e >= 1.0 and e < 0.0:
         raise ValueError("Only elliptical orbits (e < 1) are supported.")
     start = start_nu_deg % 360.0
@@ -428,11 +429,6 @@ if __name__ == "__main__":
 
 
 ##############################################################################################################################
-
-
-
-
-
 
 
 #J2 perturbations
