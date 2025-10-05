@@ -109,27 +109,6 @@ def static_orbit(asteroid: dict):
         }
     }
 
-def impact(data):
-    #m, 2r, v, rho, alpha, latlon, terrain
-    """
-    0: crater
-    1: pressure wave 20psi
-    2: pressure wave 10psi
-    3: pressure wave 5psi
-    4: pressure wave 2psi
-    """
-    eta, t_type = api.get_terrain_characteristics(data["lat"], data["lon"])
-    rho = data["m"]/data["v"]
-    c_diameter, c_depth, Ek_impact, m_abl = m.crater_dimensions_advanced(data["m"], data["v"], data["d"],
-                                                   rho, data["alpha"], t_type)
-    sismic_magnitude = m.get_seismic_equivalent(Ek_impact, eta)
-    #casualties = get_casualties(Ek, c_diameter, eta)
-    
-
-    return {"ablation": m_abl, "Ek_impact": Ek_impact, "magnitude": sismic_magnitude,
-            "crater": {"diameter": c_diameter, "depth": c_depth}, 
-            "d_area":{"code": "diameter"}}
-
 async def full_sim(data: dict):
     """Generate raw arrays for asteroid full simulation (no per-point dicts).
 
@@ -329,7 +308,7 @@ def _sample_earth_orbit(n: int) -> Tuple[list, list, list]:
 
 
 
-def deaths_and_injured(kinetic_energy, psi_radius, crater_d, eta, lat, lon):
+def deaths_and_injured(kinetic_energy, crater_d, eta, lat, lon):
     #crater diameter, everybody dead
     pop_crater = api.pop_within_radius_ghs(lat,lon,math.ceil(crater_d/2))
     dead_crater = pop_crater*(crater_d/math.ceil(crater_d)) #statistic
@@ -363,3 +342,24 @@ def deaths_and_injured(kinetic_energy, psi_radius, crater_d, eta, lat, lon):
     #returns: [0], number of dead, [1] number of injured, [2] list of radii (for infogrpahics purposes)
     return math.ceil(total_dead), math.ceil(total_injured), radii
     
+
+def impact(data):
+    #m, 2r, v, rho, alpha, latlon, terrain
+    """
+    0: crater
+    1: pressure wave 20psi
+    2: pressure wave 10psi
+    3: pressure wave 5psi
+    4: pressure wave 2psi
+    """
+    eta, t_type = api.get_terrain_characteristics(data["lat"], data["lon"])
+    rho = data["m"]/data["v"]
+    c_diameter, c_depth, Ek_impact, m_abl = m.crater_dimensions_advanced(data["m"], data["v"], data["d"],
+                                                   rho, data["alpha"], t_type)
+    sismic_magnitude = m.get_seismic_equivalent(Ek_impact, eta)
+    #casualties = get_casualties(Ek, c_diameter, eta)
+    
+
+    return {"ablation": m_abl, "Ek_impact": Ek_impact, "magnitude": sismic_magnitude,
+            "crater": {"diameter": c_diameter, "depth": c_depth}, 
+            "d_area":{"code": "diameter"}}
