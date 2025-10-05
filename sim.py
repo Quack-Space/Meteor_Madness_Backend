@@ -118,15 +118,17 @@ def impact(data):
     3: pressure wave 5psi
     4: pressure wave 2psi
     """
-    eta, t_type = api.get_eta_constant(data["lat"], data["lon"])
+    eta, t_type = api.get_terrain_characteristics(data["lat"], data["lon"])
     rho = data["m"]/data["v"]
     c_diameter, c_depth, Ek_impact, m_abl = m.crater_dimensions_advanced(data["m"], data["v"], data["d"],
                                                    rho, data["alpha"], t_type)
     sismic_magnitude = m.get_seismic_equivalent(Ek_impact, eta)
-    casualties = None
+    #casualties = get_casualties(Ek, c_diameter, eta)
     
 
-    return {"ablation": m_abl, "crater": {"diameter": c_diameter, "depth": c_depth}, "d_area":{"code": "diameter"}}
+    return {"ablation": m_abl, "Ek_impact": Ek_impact, "magnitude": sismic_magnitude,
+            "crater": {"diameter": c_diameter, "depth": c_depth}, 
+            "d_area":{"code": "diameter"}}
 
 async def full_sim(data: dict):
     """Generate raw arrays for asteroid full simulation (no per-point dicts).
