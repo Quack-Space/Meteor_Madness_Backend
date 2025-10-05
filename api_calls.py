@@ -101,11 +101,11 @@ def get_rock_type(lat, lon): #officialy, it should be called "GLiM Class" not ro
 
 
 #ottieni k per determinate lat e lon
-def get_k_constant(lat,lon):
+def get_eta_constant(lat,lon):
 
     #costante di conversione energia cinetica e suoi possibili valori
-    k=0
-    K_LOOKUP = {
+    eta=0
+    eta_LOOKUP = {
         "Unconsolidated sediments": 3e-4,
         "Siliciclastic sedimentary rocks": 5e-4,
         "Mixed sedimentary rocks": 5e-4,
@@ -125,13 +125,11 @@ def get_k_constant(lat,lon):
     rock_type = get_rock_type(lat,lon)
     if elevation < 0:
         #it's water
-        k=K_LOOKUP.get("Water Bodies")
+        eta=eta_LOOKUP.get("Water Bodies")
     elif elevation > 0:
         #it's not water (unless it's a lake but genuinely. like there's no chance. let's be real)
-        #tiziano says "what if it's a big fucking lake"
-        #dev reply: nigga sybau
-        k = K_LOOKUP.get(rock_type, 1e-3) 
-    return k
+        eta = eta_LOOKUP.get(rock_type, 1e-3) 
+    return eta
 
 
 
@@ -183,4 +181,5 @@ def deaths_within_radius(lat, lon, radius, phi):
     tif = r"Resources\GHS_POP_E2030_GLOBE_R2023A_54009_1000_V1_0.tif"
     pop = pop_within_radius_ghs(tif, lat, lon, radius)
     return pop * phi
+
 
