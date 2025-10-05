@@ -129,7 +129,7 @@ def get_eta_constant(lat,lon):
     elif elevation > 0:
         #it's not water (unless it's a lake but genuinely. like there's no chance. let's be real)
         eta = eta_LOOKUP.get(rock_type, 1e-3) 
-    return eta
+    return eta, rock_type
 
 
 

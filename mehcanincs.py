@@ -574,6 +574,9 @@ def crater_dimensions_advanced(m, v, d,
     m_f, v_f, a_f = atm_transit(m, v, d,
                                         density_impactor, impact_angle,
                                         sigma=sigma, kappa=kappa, atm_column_density=atm_column_density)
+    
+    Ek_f = kinetic_energy(m, v, v_f)
+
     # Transient crater diameter
     D_t = compute_transient_crater_diameter(m_f, v_f, a_f, density_impactor,
                                             params["density"], g, params["strength"],
@@ -588,7 +591,10 @@ def crater_dimensions_advanced(m, v, d,
     # Depth estimate
     depth = depth_from_diameter(D_final, depth_ratio_simple, depth_ratio_complex)
 
-    return D_final, depth
+    # % ablation
+    m_abl = ((m - m_f)*100)/m
+
+    return D_final, depth, Ek_f, m_abl
 
 
 
