@@ -1,4 +1,5 @@
 import mehcanincs as m
+import api_calls as api
 from typing import Dict, Any, Tuple, List
 from datetime import datetime, timezone
 import math
@@ -110,14 +111,22 @@ def static_orbit(asteroid: dict):
 
 def impact(data):
     #m, 2r, v, rho, alpha, latlon, terrain
-    t_type = None
-    diameter, depth = m.crater_dimensions_advanced(data["m"], data["v"], data["d"],
-                                                   data["rho"], data["alpha"],
-                                                   t_type)
-    casualties = None
+    """
+    0: crater
+    1: pressure wave 20psi
+    2: pressure wave 10psi
+    3: pressure wave 5psi
+    4: pressure wave 2psi
+    """
+    t_type = api.get_rock_type(data["lat"], data["lon"])
+    rho = data["m"]/data["v"]
+    c_diameter, c_depth = m.crater_dimensions_advanced(data["m"], data["v"], data["d"],
+                                                   rho, data["alpha"], t_type)
     sismic_magnitude = None
+    casualties = None
+    
 
-    return {"2r": diameter, "depth": depth}
+    return {"crater": {"diameter": c_diameter, "depth": c_depth}}
 
 async def full_sim(data: dict):
     """Generate raw arrays for asteroid full simulation (no per-point dicts).

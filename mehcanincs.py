@@ -475,10 +475,25 @@ def kinetic_energy(m, v, vf):
 
 #crater dimensions  
 # Constants for target materials
+"""
 target_par = {
     "rock": {"K1": 0.22, "mu": 0.55, "K2": 0.2, "nu": 0.4, "density": 2700, "strength": 1e7},  # strength in Pa (~10 MPa)
     "soil": {"K1": 0.24, "mu": 0.41, "K2": 0.55, "nu": 0.33, "density": 1800, "strength": 1e6},
     "ice": {"K1": 0.19, "mu": 0.55, "K2": 0.24, "nu": 0.4, "density": 900, "strength": 5e6},
+    }
+"""
+target_par = {
+    "Unconsolidated sediments": {"K1": 0.24, "mu": 0.41, "K2": 0.55, "nu": 0.33, "density": 1800, "strength": 1e6},
+    "Siliciclastic sedimentary rocks": {"K1": 0.22, "mu": 0.55, "K2": 0.2, "nu": 0.4, "density": 2500, "strength": 1e7},
+    "Mixed sedimentary rocks": {"K1": 0.22, "mu": 0.55, "K2": 0.2, "nu": 0.4, "density": 2600, "strength": 1e7},
+    "Carbonate sedimentary rocks": {"K1": 0.23, "mu": 0.55, "K2": 0.21, "nu": 0.4, "density": 2700, "strength": 1e7},
+    "Metamorphics": {"K1": 0.25, "mu": 0.6, "K2": 0.22, "nu": 0.35, "density": 2800, "strength": 2e7},
+    "Acid/Intermediate/Basic plutonic rocks": {"K1": 0.26, "mu": 0.6, "K2": 0.23, "nu": 0.35, "density": 2800, "strength": 2e7},
+    "Acid/Intermediate/Basic volcanic rocks": {"K1": 0.25, "mu": 0.55, "K2": 0.22, "nu": 0.35, "density": 2700, "strength": 1.5e7},
+    "Pyroclastics": {"K1": 0.24, "mu": 0.5, "K2": 0.21, "nu": 0.35, "density": 2300, "strength": 1e7},
+    "Evaporites": {"K1": 0.2, "mu": 0.4, "K2": 0.18, "nu": 0.33, "density": 2200, "strength": 5e6},
+    "Ice and Glaciers": {"K1": 0.19, "mu": 0.55, "K2": 0.24, "nu": 0.4, "density": 900, "strength": 5e6},
+    "Water Bodies": {"K1": 0.0, "mu": 0.0, "K2": 0.0, "nu": 0.5, "density": 1000, "strength": 0}
     }
 
 #here m, v and d (diameter) are the initial values (before the atm transit)
@@ -542,7 +557,7 @@ def depth_from_diameter(D, depth_ratio_simple=0.2, depth_ratio_complex=0.1):
     
 def crater_dimensions_advanced(m, v, d,
                                density_impactor, impact_angle,
-                               target_type="rock", g=9.81,
+                               target_type="Mixed sedimentary rocks", g=9.81,
                                simple_to_complex_D=3000,
                                sigma=1e-4, kappa=1e-5, atm_column_density=1.0e4,
                                depth_ratio_simple=0.2, depth_ratio_complex=0.1):
