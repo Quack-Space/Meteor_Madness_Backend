@@ -716,7 +716,7 @@ def compute_radii_from_energy(E_blast_j: float, thresholds_psi=(2.0, 5.0, 10.0, 
 #returns a list of tuples (psi, radius in meters) and seismic magnitude
 def damage_coefficients_radii(kinetic_energy_joules, eta):
     blast_frac=0.3
-    Wkg, radii = compute_radii_from_energy(E_blast)
+    Wkg, radii = compute_radii_from_energy(kinetic_energy_joules*blast_frac)
     radius_pressures = []
     for psi,r in radii.items():
         if r is None:
@@ -744,6 +744,7 @@ def damage_coefficients_radii(kinetic_energy_joules, eta):
 # 5psi = moderate/heavy damage, wooden houses collapse, fatality rate ~1-10%
 # 10psi = severe destruction, reinforced concrete falls, houses gone. Fatality rate ~10-50%
 # 20psi = near total destruction, most buildings destroyed. Fatality rate ~50-90%
+
 
 
 
