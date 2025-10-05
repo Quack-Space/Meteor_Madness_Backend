@@ -21,6 +21,9 @@ mu_Earth = grav_constant * earth_mass   #[m^3/s^2] Earth gravitation constant #3
 sun_mass = 1.98847e30                    # [kg]
 mu_Sun = grav_constant * sun_mass        # [m^3/s^2] Sun gravitational parameter ~1.327e20
 
+rho_w = 1000  # kg/m^3
+g = 9.80665      # m/s^2
+
 J2 = 1.08262668e-3;                     # [-] oblateness coefficient
 J3 = -2.53215306e-6;                    # [-] oblateness coefficient
 J4 = -1.61098761e-6;                    # [-] oblateness coefficient
@@ -96,7 +99,7 @@ def eci_2_ecef(x, y, z, gst):
 
 #Returns: (x, y, z) in SHRF frame [m]
 def keplerian_to_shrf(a, e, i_deg, raan_deg, argp_deg, nu_deg):
-    if e >= 1.0 and e < 0.0:
+    if (e >= 1.0) or (e < 0.0):
         raise ValueError("This function currently supports only elliptical orbits (e < 1).")
 
     #deg 2 rad
@@ -145,7 +148,7 @@ def keplerian_to_shrf(a, e, i_deg, raan_deg, argp_deg, nu_deg):
 #Returns: list of (x,y,z) tuples in SHRF frame (meters)
 
 def generate_ellipse_points_shrf(a, e, i_deg=0.0, raan_deg=0.0, argp_deg=0.0,start_nu_deg=0.0, delta_nu_deg=None,num_points=None):
-    if e >= 1.0 and e < 0.0:
+    if (e >= 1.0) or (e < 0.0):
         raise ValueError("Only elliptical orbits (e < 1) are supported.")
     start = start_nu_deg % 360.0
 
@@ -189,7 +192,7 @@ def generate_ellipse_points_shrf(a, e, i_deg=0.0, raan_deg=0.0, argp_deg=0.0,sta
 
 #Returns: (x, y, z),(vx, vy, vz) in SHRF frame [m] [m/s]
 def keplerian_to_timed_shrf(a, e, i_deg, raan_deg, argp_deg, nu_deg, mu = mu_Sun):
-    if e >= 1.0 and e < 0.0:
+    if (e >= 1.0) or (e < 0.0):
         raise ValueError("This function currently supports only elliptical orbits (e < 1).")
 
     #deg 2 rad
@@ -244,7 +247,7 @@ def keplerian_to_timed_shrf(a, e, i_deg, raan_deg, argp_deg, nu_deg, mu = mu_Sun
 #Compute time since periapsis passage (seconds) for a given true anomaly nu
 #using Kepler's equation. Returns time in seconds (>=0 and < orbital period).
 def true_anomaly_to_time_since_periapsis(a, e, nu_deg, mu=mu_Sun):
-    if e >= 1.0 and e < 0.0:
+    if (e >= 1.0) or (e < 0.0):
         raise ValueError("Only elliptical orbits (e < 1) are supported.")
 
     #deg 2 rad
@@ -297,7 +300,7 @@ def true_anomaly_to_time_since_periapsis(a, e, nu_deg, mu=mu_Sun):
 #Returns: list of (x,y,z) tuples in SHRF frame (meters)
 
 def generate_ellipse_timed_points_shrf(a, e, i_deg=0.0, raan_deg=0.0, argp_deg=0.0,start_nu_deg=0.0, mu = mu_Sun, delta_nu_deg=None, num_points=None, epoch=None):
-    if e >= 1.0 and e < 0.0:
+    if (e >= 1.0) or (e < 0.0):
         raise ValueError("Only elliptical orbits (e < 1) are supported.")
     start = start_nu_deg % 360.0
     positions = []
@@ -342,6 +345,139 @@ def generate_ellipse_timed_points_shrf(a, e, i_deg=0.0, raan_deg=0.0, argp_deg=0
 
     return positions, velocities, times
     
+
+
+# Tsunami amplitude estimate
+#empirical tsunami amplitude estimator for an ocean impact.
+#Inputs:
+#- kinetic_energy_j: kinetic energy of impactor [J]
+#- impact_angle_deg: impact angle measured from horizontal [deg] (0 = grazing, 90 = vertical)
+#- lat, lon: impact location (degrees)
+#- water_depth_m: characteristic ocean depth used to estimate wave speed [m]
+#- distances_km: iterable of distances (km) from impact at which to estimate amplitude.
+#- attenuation_km: e-folding distance for amplitude attenuation (km)
+#- A0 : float Initial amplitude at r0 (meters). A0 > 0.
+#- r0_km : float Reference radius (km) where amplitude is A0 (use small positive like 1 km).
+#- mu_km_inv : float Dissipation coefficient in km^-1 (>= 0).
+#
+#Returns a dict with keys:
+#- source_amplitude_m: estimated amplitude at impact source [m]
+#- amplitudes_m: dict mapping distance_km -> amplitude_m
+#- travel_times_s: dict mapping distance_km -> travel time [s] using shallow-water speed
+#- attenuation_km: distance (km) where amplitude falls below 0.01 meters
+#- shallow_speed_m_s: estimated shallow-water wave speed [m/s]
+#
+#Notes/assumptions:
+#A(r) = A0 * (r0/r)**0.5 * exp(-mu*(r-r0)) amplitude decay model
+#Travel time uses c = sqrt(g * depth).
+def estimate_tsunami_amplitude(kinetic_energy_j, impact_angle_deg, water_depth_m = 1000.0, k=1e-4):
+    if kinetic_energy_j <= 0:
+        raise ValueError("kinetic_energy_j must be positive")
+    
+    mu_km_inv=1e-2  # dissipation coefficient in km^-1 TO BE IMPLEMENTED
+
+    # impact angle efficiency (angle from horizontal). vertical (90deg) -> sin=1
+    theta_rad = np.radians(impact_angle_deg)
+
+    source_amp = float(max(0.0, k * ((kinetic_energy_j * np.sin(theta_rad)) / (rho_w * g * water_depth_m**2))**0.25))
+ 
+    # attenuation and travel times
+    amplitudes = {}
+    travel_times = {}
+    c = np.sqrt(g * max(1.0, water_depth_m))  # shallow-water speed (m/s)
+
+    attenuation_km = tsunami_dissipation_distance(A0=source_amp, r0_km=1.0, A_thresh=0.01, mu_km_inv=mu_km_inv)
+    if attenuation_km is None:
+        attenuation_km = 10000
+    # distances to evaluate
+    distances_km = np.linspace(1.0, attenuation_km, 50)
+
+    def A_of_r(r):
+        # avoid r==0
+        if r <= 0:
+            r = 1e-9
+        geom = np.sqrt(1.0 / r)
+        damp = np.exp(-mu_km_inv * (r - 1.0))
+        return source_amp * geom * damp
+
+    for d in distances_km:
+        amp = A_of_r(d)
+        amplitudes[float(d)] = float(amp)
+        # travel time (s) using great-circle distance and depth
+        dist_m = float(d) * 1000.0
+        travel_times[float(d)] = float(dist_m / c)
+
+    out = {
+        'source_amplitude_m': float(source_amp),
+        'amplitudes_m': amplitudes,
+        'travel_times_s': travel_times,
+        'attenuation_km': float(attenuation_km),
+        'shallow_speed_m_s': float(c)
+    }
+    return out
+
+
+
+#Estimate distance (km) where tsunami amplitude falls below A_thresh using
+#A(r) = A0 * (r0/r)**0.5 * exp(-mu*(r-r0)).
+#Parameters
+#A0 : float Initial amplitude at r0 (meters). A0 > 0.
+#r0_km : float Reference radius (km) where amplitude is A0 (use small positive like 1 km).
+#A_thresh : float Threshold amplitude (meters) considered "dissipated". Must be > 0 and < A0.
+#mu_km_inv : float Dissipation coefficient in km^-1 (>= 0).
+#max_search_km : float Upper bound for search (km). Increase if needed.
+#Upper bound for search (km). Increase if needed.
+#tol : float Relative tolerance for amplitude equation.
+#max_iters : int Max iterations for bisection.
+#Returns
+#r_km : float
+#Distance in km where A(r) <= A_thresh. If threshold not reached within max_search_km, returns None.
+def tsunami_dissipation_distance(A0, r0_km, A_thresh, mu_km_inv, max_search_km=1e10, tol=1e-6, max_iters=1000):
+    if (A0 <= 0) or (A_thresh <= 0):
+        raise ValueError("A0 and A_thresh must be positive.")
+    if A_thresh >= A0:
+        return r0_km  # already below threshold at or before r0
+
+    def A_of_r(r):
+        # avoid r==0
+        if r <= 0:
+            r = 1e-9
+        geom = np.sqrt(r0_km / r)
+        damp = np.exp(-mu_km_inv * (r - r0_km))
+        return A0 * geom * damp
+
+    # monotonic decreasing for r >= r0_km in typical cases (mu >= 0)
+    r_lo = r0_km
+    A_lo = A_of_r(r_lo)
+    if A_lo <= A_thresh:
+        return r_lo
+
+    r_hi = r0_km * 2.0 if r0_km>0 else 1.0
+    # expand hi until A(r_hi) <= A_thresh or exceed max_search_km
+    while r_hi < max_search_km and A_of_r(r_hi) > A_thresh:
+        r_hi *= 2.0
+        print(A_of_r(r_hi))
+
+    if A_of_r(r_hi) > A_thresh:
+        # threshold not reached within max_search_km
+        return None
+
+    # bisection
+    it = 0
+    while it < max_iters:
+        r_mid = 0.5 * (r_lo + r_hi)
+        A_mid = A_of_r(r_mid)
+        if abs(A_mid - A_thresh) <= tol * A_thresh:
+            return r_mid
+        # decide side
+        if A_mid > A_thresh:
+            r_lo = r_mid
+        else:
+            r_hi = r_mid
+        it += 1
+
+    # return best estimate
+    return 0.5 * (r_lo + r_hi)
 
 
 def plot_points_3d(points, title="Orbit points", outpath="orbit_plot.png"):
@@ -426,6 +562,23 @@ if __name__ == "__main__":
     fig.savefig("orbit_static_shrf.png", dpi=200)
 
     print(f"Saved plot to orbit_static_shrf.png")
+"""
+"""
+#Example usage of tsunami
+res = estimate_tsunami_amplitude(
+    kinetic_energy_j=(17.5)*1e15,
+    impact_angle_deg=30.0,
+    water_depth_m=1000.0, #TO BE IMPORTED WITH NICDISYS FUNCTION
+)
+
+print(f"Source amplitude (m): {res['source_amplitude_m']:.6e}")
+print('\nAmplitudes and travel times:')
+for d in sorted(res['amplitudes_m'].keys()):
+    a = res['amplitudes_m'][d]
+    t = res['travel_times_s'][d]
+    b = res['attenuation_km']
+    print(f"  {d:7.1f} km -> amp = {a:.6e} m, travel time = {t:.1f} s, attenuation = {b:.1f} km")
+
 """
 
 
@@ -750,6 +903,7 @@ def damage_coefficients_radii(kinetic_energy_joules, eta):
 # 5psi = moderate/heavy damage, wooden houses collapse, fatality rate ~1-10%
 # 10psi = severe destruction, reinforced concrete falls, houses gone. Fatality rate ~10-50%
 # 20psi = near total destruction, most buildings destroyed. Fatality rate ~50-90%
+
 
 
 
