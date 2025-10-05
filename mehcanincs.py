@@ -712,14 +712,6 @@ def compute_radii_from_energy(E_blast_j: float, thresholds_psi=(2.0, 5.0, 10.0, 
     return W, radii
 
 
-
-# quick demo example:
-# total E = 1e14 J, assume 30% couples to blast
-E_total = 1e14
-blast_frac = 0.30
-E_blast = E_total * blast_frac
-
-
 #feed this function energy in joules and eta (depends on terrain type)
 #returns a list of tuples (psi, radius in meters) and seismic magnitude
 def impact_damage_radii(kinetic_energy_joules, eta):
@@ -740,5 +732,6 @@ def impact_damage_radii(kinetic_energy_joules, eta):
 # 5psi = moderate/heavy damage, wooden houses collapse, fatality rate ~1-10%
 # 10psi = severe destruction, reinforced concrete falls, houses gone. Fatality rate ~10-50%
 # 20psi = near total destruction, most buildings destroyed. Fatality rate ~50-90%
+
 
 
