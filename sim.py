@@ -326,3 +326,40 @@ def _sample_earth_orbit(n: int) -> Tuple[list, list, list]:
         velocities.append([round(vx_pf, 1), round(vy_pf, 1), 0.0])
         times.append(round(T * (idx / n), 1))
     return positions, velocities, times
+
+
+
+def deaths_and_injured(kinetic_energy, psi_radius, crater_d, eta, lat, lon):
+    #crater diameter, everybody dead
+    pop_crater = api.pop_within_radius_ghs(lat,lon,math.ceil(crater_d/2))
+    dead_crater = pop_crater*(crater_d/math.ceil(crater_d)) #statistic
+
+    #get damage radius with associated fatality and injury rates
+    psi_radius = m.damage_coefficients_radii(kinetic_energy, eta)
+
+    #now with the radii
+    pop_20psi = api.pop_within_radius_ghs(lat,lon,math.ceil(psi_radius[0][3][0]/1000))-pop_crater
+    dead_20psi = pop_20psi*psi_radius[0][3][1]
+    injured_20psi = pop_20psi*psi_radius[0][3][2]
+
+    pop10psi = api.pop_within_radius_ghs(lat,lon,math.ceil(psi_radius[0][2][0]/1000))-pop_crater-pop_20psi
+    dead_10psi = pop10psi*psi_radius[0][2][1]
+    injured_10psi = pop10psi*psi_radius[0][2][2]   
+
+    pop5psi = api.pop_within_radius_ghs(lat,lon,math.ceil(psi_radius[0][1][0]/1000))-pop_crater-pop_20psi-pop10psi
+    dead_5psi = pop5psi*psi_radius[0][1][1]
+    injured_5psi = pop5psi*psi_radius[0][1][2]
+
+    pop2psi = api.pop_within_radius_ghs(lat,lon,math.ceil(psi_radius[0][0][0]/1000))-pop_crater-pop_20psi-pop10psi-pop5psi
+    dead_2psi = pop2psi*psi_radius[0][0][1]
+    injured_2psi = pop2psi*psi_radius[0][0][2]
+    
+    total_dead = dead_crater+dead_20psi+dead_10psi+dead_5psi+dead_2psi
+    total_injured = injured_20psi+injured_10psi+injured_5psi+injured_2psi
+
+    #list of radii for infogrpahics purposes
+    radii = [crater_d/2, psi_radius[0][3][0], psi_radius[0][2][0], psi_radius[0][1][0], psi_radius[0][0][0]]
+
+    #returns: [0], number of dead, [1] number of injured, [2] list of radii (for infogrpahics purposes)
+    return math.ceil(total_dead), math.ceil(total_injured), radii
+    
