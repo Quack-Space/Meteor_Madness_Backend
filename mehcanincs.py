@@ -187,6 +187,74 @@ def plot_points_3d(points, title="Orbit points", outpath="orbit_plot.png"):
 
 
 
+###EXAMPLE USAGE OF STATIC AND DYNAMIC ORBIT POINTS CALCULATION
+"""
+if __name__ == "__main__":
+    # quick example / smoke test
+    a = 149.6e9
+    e = 0.017
+    i = 1.58
+    raan = 174.9
+    argp = 288.1
+
+    a2 = 227.94e9
+    e2 = 0.093
+    i2 = 1.85
+    raan2 = 149.6
+    argp2 = 286.5
+
+    pos, vel, time = generate_ellipse_timed_points_shrf(a, e, i_deg=i, raan_deg=raan, argp_deg=argp, epoch=1759613269, num_points=1000)#, delta_nu_deg=30.0, num_points=10
+    print(f"Generated {len(pos)} points.")
+    
+    print("pos")
+    for p in pos:
+        print (p)
+    print("vel")
+    for v in vel:
+        print (v)
+    print("time")
+    for t in time:
+        print (t)
+    out_file = "orbit_timed_shrf.png"
+    plot_points_3d(pos, title="SHRF Orbit", outpath=out_file)
+    print(f"Saved plot to {out_file}")
+
+#Static plotting 1
+    pts = generate_ellipse_points_shrf(a, e, i_deg=i, raan_deg=raan, argp_deg=argp, num_points=1000) #delta_nu_deg=30.0)
+    print(f"Generated {len(pts)} points.")
+#    print("pts1")
+#    for p in pts:
+#        print (p)
+    pts_arr = np.array(pts)
+    fig = plt.figure(figsize=(10,10))
+    ax = fig.add_subplot(111, projection='3d')
+    ax.plot(pts_arr[:,0], pts_arr[:,1], pts_arr[:,2], lw=1)
+    ax.scatter(pts_arr[0,0], pts_arr[0,1], pts_arr[0,2], color='red', s=20, label='start')
+
+#Static plotting 2
+    pts = generate_ellipse_points_shrf(a2, e2, i_deg=i2, raan_deg=raan2, argp_deg=argp2, num_points=1000) #delta_nu_deg=30.0)
+    print(f"Generated {len(pts)} points.")
+
+#    print("pts2")
+#    for p in pts:
+#        print (p)
+
+    pts_arr = np.array(pts)
+    ax.plot(pts_arr[:,0], pts_arr[:,1], pts_arr[:,2], lw=1)
+    ax.scatter(pts_arr[0,0], pts_arr[0,1], pts_arr[0,2], color='red', s=20, label='start')
+
+#Def before saving
+    ax.set_xlabel('X [m]')
+    ax.set_ylabel('Y [m]')
+    ax.set_zlabel('Z [m]')
+    ax.set_title("SHRF static Orbit")
+    ax.legend()
+
+    fig.savefig("orbit_static_shrf.png", dpi=200)
+
+    print(f"Saved plot to orbit_static_shrf.png")
+"""
+
 
 ##############################################################################################################################
 
@@ -338,3 +406,4 @@ def crater_dimensions_advanced(m, v, d,
     depth = depth_from_diameter(D_final, depth_ratio_simple, depth_ratio_complex)
 
     return D_final, depth
+
