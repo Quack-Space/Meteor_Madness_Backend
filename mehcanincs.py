@@ -722,17 +722,29 @@ E_blast = E_total * blast_frac
 
 #feed this function energy in joules and eta (depends on terrain type)
 #returns a list of tuples (psi, radius in meters) and seismic magnitude
-def impact_damage_radii(kinetic_energy_joules, eta):
+def damage_coefficients_radii(kinetic_energy_joules, eta):
     blast_frac=0.3
     Wkg, radii = compute_radii_from_energy(E_blast)
     radius_pressures = []
-    print(f"\nTNT equivalent (kg): {Wkg:.3e} kg ({Wkg/1000:.2f} t)")
     for psi,r in radii.items():
         if r is None:
             radius_pressures.append((psi, None))
         else:
             radius_pressures.append((psi, r))
-    return radius_pressures,get_seismic_equivalent(kinetic_energy_joules, eta)
+    
+    #creates a list of tuples (radius in meters, fatality rate, injury rate)
+    coefficients_per_radius = []
+    for r in radius_pressures:
+        if r[0] == 2:
+            coefficients_per_radius.append((r[1], 0.001, 0.5))
+        elif r[0] == 5:
+            coefficients_per_radius.append((r[1], 0.07, 0.6))  
+        elif r[0] == 10:
+            coefficients_per_radius.append((r[1], 0.3, 0.5))
+        elif r[0] == 20:
+            coefficients_per_radius.append((r[1], 0.7, 0.3))
+    #returns a list of tuples (radius in meters, fatality rate, injury rate) and seismic magnitude
+    return coefficients_per_radius,get_seismic_equivalent(kinetic_energy_joules, eta)
 
 #CHEATSHEET:
 # psi to kPa: multiply by 6.89476
@@ -740,5 +752,6 @@ def impact_damage_radii(kinetic_energy_joules, eta):
 # 5psi = moderate/heavy damage, wooden houses collapse, fatality rate ~1-10%
 # 10psi = severe destruction, reinforced concrete falls, houses gone. Fatality rate ~10-50%
 # 20psi = near total destruction, most buildings destroyed. Fatality rate ~50-90%
+
 
 
