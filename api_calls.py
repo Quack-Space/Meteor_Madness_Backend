@@ -100,10 +100,9 @@ def get_rock_type(lat, lon): #officialy, it should be called "GLiM Class" not ro
 
 
 
-#ottieni k per determinate lat e lon
-def get_eta_constant(lat,lon):
-
-    #costante di conversione energia cinetica e suoi possibili valori
+#ottieni elevazione, eta e tipo di terreno (stringa) sapendo lat e lon
+def get_terrain_characteristics(lat,lon):
+    #costante di efficienza di conversione energia cinetica e suoi possibili valori
     eta=0
     eta_LOOKUP = {
         "Unconsolidated sediments": 3e-4,
@@ -123,13 +122,14 @@ def get_eta_constant(lat,lon):
     elevation = get_elevation(lat, lon)
     # rock type 👍
     rock_type = get_rock_type(lat,lon)
+    
     if elevation < 0:
         #it's water
         eta=eta_LOOKUP.get("Water Bodies")
     elif elevation > 0:
         #it's not water (unless it's a lake but genuinely. like there's no chance. let's be real)
         eta = eta_LOOKUP.get(rock_type, 1e-3) 
-    return eta, rock_type
+    return eta, rock_type, elevation
 
 
 
@@ -156,8 +156,10 @@ def make_geodesic_circle(lat, lon, radius_km):
     circle = transform(fwd, Point(lon, lat)).buffer(radius_km * 1000.0)
     return transform(back, circle)  # polygon back in WGS84
 
-def pop_within_radius_ghs(tif_path, lat, lon, radius_km):
+#ritorna popolazione nel raggio di radius_km attorno al punto con coordinate lat e lon
+def pop_within_radius_ghs(lat, lon, radius_km):
     circle_wgs84 = make_geodesic_circle(lat, lon, radius_km)
+    tif_path = r"Resources\GHS_POP_E2030_GLOBE_R2023A_54009_1000_V1_0.tif"       #THAT 250MB FILE
     with rasterio.open(tif_path) as src:
         # Reproject circle to the raster CRS (54009)
         to_raster = pyproj.Transformer.from_crs("EPSG:4326", src.crs, always_xy=True).transform
@@ -176,10 +178,6 @@ def pop_within_radius_ghs(tif_path, lat, lon, radius_km):
         return float(np.nansum(arr))
 
 
-#takes in lat, lon, radius in km, and phi (mortality rate), returns estimated deaths
-def deaths_within_radius(lat, lon, radius, phi):
-    tif = r"Resources\GHS_POP_E2030_GLOBE_R2023A_54009_1000_V1_0.tif"
-    pop = pop_within_radius_ghs(tif, lat, lon, radius)
-    return pop * phi
+
 
 
