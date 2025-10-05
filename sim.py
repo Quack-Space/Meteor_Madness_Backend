@@ -350,7 +350,7 @@ def deaths_and_injured(kinetic_energy, crater_d, eta, lat, lon):
     radii = [crater_d/2, psi_radius[0][3][0], psi_radius[0][2][0], psi_radius[0][1][0], psi_radius[0][0][0]]
 
     #returns: [0], number of dead, [1] number of injured, [2] list of radii (for infogrpahics purposes)
-    return math.ceil(death_count(total_injured), radii
+    return math.ceil(death_count), math.ceil(injured_count), radii
     
 
 def impact(data):
@@ -367,9 +367,9 @@ def impact(data):
     c_diameter, c_depth, Ek_impact, m_abl = m.crater_dimensions_advanced(data["m"], data["v"], data["d"],
                                                    rho, data["alpha"], t_type)
     sismic_magnitude = m.get_seismic_equivalent(Ek_impact, eta)
-    #casualties = get_casualties(Ek, c_diameter, eta)
+    deads, injured, radii = deaths_and_injured(Ek_impact, c_diameter, eta, data["lat"], data["lon"])
     
 
     return {"ablation": m_abl, "Ek_impact": Ek_impact, "magnitude": sismic_magnitude,
-            "crater": {"diameter": c_diameter, "depth": c_depth}, 
-            "d_area":{"code": "diameter"}}
+            "deaths": deads, "injured": injured, "radii": radii,
+            "crater": {"diameter": c_diameter, "depth": c_depth}}
