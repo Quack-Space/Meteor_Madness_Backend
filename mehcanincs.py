@@ -1,24 +1,21 @@
 
-from poliastro import core as policore
-import math
 import numpy as np
 import utm
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
-from mpl_toolkits.mplot3d import Axes3D
 
 ################
 ### CONSTANTS ###
 
-grav_constant = 6.674 * 10**-11         #N·m²/kg²
+grav_constant = 6.674e-11         #N·m²/kg²
 
 R_Earth  = 6378137.0;                   #[m] medium equatorial radius
-earth_mass = 5.972 * 10**24             #[kg]
 
+earth_mass = 5.972 * 10**24             #[kg]
 mu_Earth = grav_constant * earth_mass   #[m^3/s^2] Earth gravitation constant #398600441800000.00
 
-# Sun constants for Sun-Heliocentric Reference (SHRC)
+# Sun constants for Sun-Heliocentric Reference Frame(SHRF)
 sun_mass = 1.98847e30                    # [kg]
 mu_Sun = grav_constant * sun_mass        # [m^3/s^2] Sun gravitational parameter ~1.327e20
 
@@ -83,6 +80,7 @@ def eci_2_ecef(x, y, z, gst):
     return x_ecef, y_ecef, z_ecef
 ################
 
+#Static orbuit determination SOD
 # Keplerian -> Cartesian (SHRF)
 #Convert Keplerian orbital elements to SHRF position vector (meters).
 
@@ -96,7 +94,7 @@ def eci_2_ecef(x, y, z, gst):
 
 #Returns: (x, y, z) in SHRF frame [m]
 def keplerian_to_shrf(a, e, i_deg, raan_deg, argp_deg, nu_deg):
-    if e >= 1.0:
+    if e >= 1.0 and e < 0.0:
         raise ValueError("This function currently supports only elliptical orbits (e < 1).")
 
     #deg 2 rad
@@ -119,17 +117,17 @@ def keplerian_to_shrf(a, e, i_deg, raan_deg, argp_deg, nu_deg):
     ci = float(np.cos(i));    si = float(np.sin(i))
     cw = float(np.cos(argp)); sw = float(np.sin(argp))
 
-    # Combined rotation matrix from perifocal to ECI
+    #Combined rotation matrix from perifocal to SHRF
     R = np.array([
         [ca * cw - sa * sw * ci, -ca * sw - sa * cw * ci, sa * si],
         [sa * cw + ca * sw * ci, -sa * sw + ca * cw * ci, -ca * si],
         [sw * si               , cw * si                , ci]
         ])
 
-    x_eci = R[0, 0] * x_pf + R[0, 1] * y_pf + R[0, 2] * z_pf
-    y_eci = R[1, 0] * x_pf + R[1, 1] * y_pf + R[1, 2] * z_pf
-    z_eci = R[2, 0] * x_pf + R[2, 1] * y_pf + R[2, 2] * z_pf
-    return float(x_eci), float(y_eci), float(z_eci)
+    x_shrf = R[0, 0] * x_pf + R[0, 1] * y_pf + R[0, 2] * z_pf
+    y_shrf = R[1, 0] * x_pf + R[1, 1] * y_pf + R[1, 2] * z_pf
+    z_shrf = R[2, 0] * x_pf + R[2, 1] * y_pf + R[2, 2] * z_pf
+    return round(float(x_shrf),1), round(float(y_shrf),1), round(float(z_shrf),1)
 
 
 #Generate a list of (x,y,z) tuples representing points on an elliptical orbit
@@ -145,7 +143,7 @@ def keplerian_to_shrf(a, e, i_deg, raan_deg, argp_deg, nu_deg):
 #Returns: list of (x,y,z) tuples in SHRF frame (meters)
 
 def generate_ellipse_points_shrf(a, e, i_deg=0.0, raan_deg=0.0, argp_deg=0.0,start_nu_deg=0.0, delta_nu_deg=None,num_points=None):
-    if e >= 1.0:
+    if e >= 1.0 and e < 0.0:
         raise ValueError("Only elliptical orbits (e < 1) are supported.")
     start = start_nu_deg % 360.0
 
@@ -157,7 +155,6 @@ def generate_ellipse_points_shrf(a, e, i_deg=0.0, raan_deg=0.0, argp_deg=0.0,sta
                   for nu in nus]
         return points
 
-    # fallback: num_points or default
     if num_points is not None:
         if num_points <= 0:
             raise ValueError("num_points must be positive")
@@ -169,6 +166,180 @@ def generate_ellipse_points_shrf(a, e, i_deg=0.0, raan_deg=0.0, argp_deg=0.0,sta
               for nu in nus]
     return points
 
+
+
+
+
+
+#DYNAMIC ORBIT DETERMINATION DOD
+#Keplerian -> Cartesian (SHRF)
+#Convert Keplerian orbital elements to SHRF position vector (meters).
+
+#Inputs:
+#- a: semi-major axis [m]
+#- e: eccentricity (0<=e<1)
+#- i_deg: inclination [deg]
+#- raan_deg: right ascension of ascending node Omega [deg]
+#- argp_deg: argument of perigee omega [deg]
+#- nu_deg: true anomaly [deg]
+#Compute position and velocity in SHRF (heliocentric inertial) frame for
+#a given set of Keplerian elements and true anomaly.
+
+#Returns: (x, y, z),(vx, vy, vz) in SHRF frame [m] [m/s]
+def keplerian_to_timed_shrf(a, e, i_deg, raan_deg, argp_deg, nu_deg, mu = mu_Sun):
+    if e >= 1.0 and e < 0.0:
+        raise ValueError("This function currently supports only elliptical orbits (e < 1).")
+
+    #deg 2 rad
+    i = np.radians(i_deg)
+    raan = np.radians(raan_deg)
+    argp = np.radians(argp_deg)
+    nu = np.radians(nu_deg)
+
+    #calculating distance in orbital plane
+    r = a * (1 - e**2) / (1 + e * np.cos(nu))
+
+    #position in perifocal coordinates
+    x_pf = r * np.cos(nu)
+    y_pf = r * np.sin(nu)
+    z_pf = 0.0
+
+    #semi-latus rectum
+    p = a * (1 - e**2)
+
+    #specific angular momentum
+    h = np.sqrt(mu * p)
+
+    #velocity in perifocal
+    vx_pf = -mu / h * np.sin(nu)
+    vy_pf = mu / h * (e + np.cos(nu))
+    vz_pf = 0.0
+
+    #Rotation matrices
+    #R = Rz(raan) * Rx(i) * Rz(argp)
+    ca = float(np.cos(raan)); sa = float(np.sin(raan))
+    ci = float(np.cos(i));    si = float(np.sin(i))
+    cw = float(np.cos(argp)); sw = float(np.sin(argp))
+
+    #Combined rotation matrix from perifocal to SHRF
+    R = np.array([
+        [ca * cw - sa * sw * ci, -ca * sw - sa * cw * ci, sa * si],
+        [sa * cw + ca * sw * ci, -sa * sw + ca * cw * ci, -ca * si],
+        [sw * si               , cw * si                , ci]
+        ])
+
+    x = R[0, 0] * x_pf + R[0, 1] * y_pf + R[0, 2] * z_pf
+    y = R[1, 0] * x_pf + R[1, 1] * y_pf + R[1, 2] * z_pf
+    z = R[2, 0] * x_pf + R[2, 1] * y_pf + R[2, 2] * z_pf
+
+    vx = R[0, 0] * vx_pf + R[0, 1] * vy_pf + R[0, 2] * vz_pf
+    vy = R[1, 0] * vx_pf + R[1, 1] * vy_pf + R[1, 2] * vz_pf
+    vz = R[2, 0] * vx_pf + R[2, 1] * vy_pf + R[2, 2] * vz_pf
+
+    return (round(float(x), 1), round(float(y), 1), round(float(z), 1)), (round(float(vx), 1), round(float(vy), 1), round(float(vz), 1))
+
+
+#Compute time since periapsis passage (seconds) for a given true anomaly nu
+#using Kepler's equation. Returns time in seconds (>=0 and < orbital period).
+def true_anomaly_to_time_since_periapsis(a, e, nu_deg, mu=mu_Sun):
+    if e >= 1.0 and e < 0.0:
+        raise ValueError("Only elliptical orbits (e < 1) are supported.")
+
+    #deg 2 rad
+    nu = np.radians(nu_deg)
+    #eccentric anomaly E from true anomaly
+    if abs(e) < 1e-12:
+        E = nu
+    else:
+        tan_halfE = np.sqrt((1 - e) / (1 + e)) * np.tan(nu / 2.0)
+        E = 2.0 * np.arctan(tan_halfE)
+        if E < 0:
+            E = E + 2.0 * np.pi
+
+    #mean anomaly
+    M = E - e * np.sin(E)
+
+    #mean motion
+    n = np.sqrt(mu / (a ** 3))
+
+    #time since periapsis
+    t = M / n
+    #orbital period
+    T = 2.0 * np.pi / n
+    #normalize to [0, T)
+    t = t % T
+    return float(t)
+
+
+#Generate positions, velocities, and timestamps (seconds since epoch or periapsis)
+#for points along an elliptical heliocentric orbit.
+
+#Returns a tuple (positions, velocities, times):
+#- positions: list of (x,y,z) in meters (SHRF inertial)
+#- velocities: list of (vx,vy,vz) in m/s
+#- times: list of timestamps in seconds. If `epoch` is None, times are
+#seconds since periapsis (>=0). If `epoch` is a float, it is treated
+#as seconds since some reference and `times` = epoch + t_since_peri.
+#If `epoch` is a datetime.datetime, it is converted to POSIX timestamp.
+
+#Generate a list of (x,y,z) tuples representing points on an elliptical orbit
+#in the Sun-Heliocentric Reference Frame (SHRF) defined by Keplerian elements.
+#You can specify either a delta in true anomaly (degrees) with `delta_nu_deg`,
+#or an approximate arc-length spacing in meters with `spacing`. Alternatively,
+#request `num_points` equally spaced in true anomaly.
+
+#Priority of options: if `delta_nu_deg` is provided it is used; else if
+#`num_points` provided produce that many points; else default to 361 points
+#(1 deg steps).
+
+#Returns: list of (x,y,z) tuples in SHRF frame (meters)
+
+def generate_ellipse_timed_points_shrf(a, e, i_deg=0.0, raan_deg=0.0, argp_deg=0.0,start_nu_deg=0.0, mu = mu_Sun, delta_nu_deg=None,num_points=None, epoch=None):
+    if e >= 1.0 and e < 0.0:
+        raise ValueError("Only elliptical orbits (e < 1) are supported.")
+    start = start_nu_deg % 360.0
+    positions = []
+    velocities = []
+    times_rel = []
+
+    if delta_nu_deg is not None:
+        if delta_nu_deg <= 0:
+            raise ValueError("delta_nu_deg must be positive")
+        nus = np.arange(start, start + 360.0, delta_nu_deg)
+        Datas = [(keplerian_to_timed_shrf(a, e, i_deg, raan_deg, argp_deg, float(nu)), true_anomaly_to_time_since_periapsis(a, e, float(nu), mu)) for nu in nus]
+
+        [positions.append(_[0][0]) for _ in Datas]
+        [velocities.append(_[0][1]) for _ in Datas]
+        [times_rel.append(round(_[1],1)) for _ in Datas]
+        
+        #convert epoch if provided
+        if epoch is None:
+            times = times_rel
+        else:
+            times = [round((float(epoch) + t), 1) for t in times_rel]
+
+        return positions, velocities, times
+    elif num_points is not None:
+        if num_points <= 0:
+            raise ValueError("num_points must be positive")
+        nus = np.linspace(start, start + 360.0, num_points, endpoint=False)
+    else:
+        nus = np.linspace(start, start + 360.0, 361, endpoint=False)
+
+    Datas = [(keplerian_to_timed_shrf(a, e, i_deg, raan_deg, argp_deg, float(nu)), true_anomaly_to_time_since_periapsis(a, e, float(nu), mu)) for nu in nus]
+
+    [positions.append(_[0][0]) for _ in Datas]
+    [velocities.append(_[0][1]) for _ in Datas]
+    [times_rel.append(round(_[1],1)) for _ in Datas]
+    
+    #convert epoch if provided
+    if epoch is None:
+        times = times_rel
+    else:
+        times = [round((float(epoch) + t), 1) for t in times_rel]
+
+    return positions, velocities, times
+    
 
 
 def plot_points_3d(points, title="Orbit points", outpath="orbit_plot.png"):
@@ -338,3 +509,4 @@ def crater_dimensions_advanced(m, v, d,
     depth = depth_from_diameter(D_final, depth_ratio_simple, depth_ratio_complex)
 
     return D_final, depth
+
