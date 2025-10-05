@@ -5,6 +5,7 @@ import utm
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+import kingery_bulmash as kb
 
 ################
 ### CONSTANTS ###
@@ -573,4 +574,156 @@ def crater_dimensions_advanced(m, v, d,
     depth = depth_from_diameter(D_final, depth_ratio_simple, depth_ratio_complex)
 
     return D_final, depth
+
+
+
+##############################################################################################################################
+
+
+
+#DAMAGE CALCULATOR
+# Requires: pip install kingery-bulmash
+
+# constants
+PSI_TO_KPA = 6.89476
+J_PER_KG_TNT = 4.184e6  # J per kg TNT
+
+#Takes kinetic energy in Joules and terrain seismic efficiency (eta)
+#ONLY IF GROUND IMPACT, NOT WATER
+def get_seismic_equivalent(kinetic_energy_joules, eta):
+        kinetic_energy_transfered = eta * kinetic_energy_joules
+        magnitude = ((2/3) * (math.log10(kinetic_energy_transfered) - 4.8))/1.5
+        return magnitude
+
+
+def energy_to_kgTNT(E_joules: float) -> float:
+    """Convert blast energy (J) to kg TNT."""
+    return E_joules / J_PER_KG_TNT
+
+
+def incident_pressure_kpa(neq_kg: float, distance_m: float) -> float:
+    """
+    Return incident overpressure (kPa) from kingery_bulmash for a hemispherical surface burst.
+    - neq_kg: TNT equivalent mass in kg
+    - distance_m: distance from burst in meters
+    """
+    # safe=True will raise ValueError if out-of-range; we rely on exceptions to handle invalid distances
+    res = kb.Blast_Parameters(unit_system=kb.Units.METRIC, neq=neq_kg, distance=distance_m, safe=False)
+    return float(res.incident_pressure)  # kPa
+
+
+def find_radius_for_overpressure(neq_kg: float, target_psi: float, r_lo=0.1, r_hi=None, tol=1e-2, max_iter=60):
+    """
+    Find radius R (m) such that incident_pressure(R) ~= target_psi, using bisection.
+    - neq_kg: TNT mass in kg
+    - target_psi: overpressure target in psi
+    - r_lo: initial lower bound (m)
+    - r_hi: initial upper bound (m); if None it's estimated from scaled-distance bounds
+    - tol: convergence tolerance (meters)
+    """
+
+    target_kpa = target_psi * PSI_TO_KPA
+
+    # estimate sensible upper bound if not provided using Kingery-Bulmash valid scaled-distance (Z_max ~40 m/kg^(1/3))
+    if r_hi is None:
+        # W^(1/3) * Z_max => rough upper bound for distance where KB is still valid
+        Z_MAX = 40.0  # m / kg^(1/3) (KB valid up to ~40)
+        r_hi = Z_MAX * (neq_kg ** (1.0/3.0))
+
+    # Make sure bounds produce function values that bracket the root (pressure decreases with distance)
+    try:
+        p_lo = incident_pressure_kpa(neq_kg, r_lo)
+    except Exception:
+        p_lo = float('inf')  # treat as very large if invalid (very near-field)
+    p_hi = incident_pressure_kpa(neq_kg, r_hi)
+
+    # If even at r_lo pressure is below the target, no root in (r_lo,r_hi) — try even smaller r_lo
+    if p_lo < target_kpa:
+        # try shrinking r_lo a bit
+        r_lo = r_lo * 0.1
+        try:
+            p_lo = incident_pressure_kpa(neq_kg, r_lo)
+        except Exception:
+            p_lo = float('inf')
+
+    # If at the estimated r_hi pressure is still > target, extend r_hi (rare for huge W or tiny target)
+    iter_extend = 0
+    while p_hi > target_kpa and iter_extend < 10:
+        r_hi *= 2.0
+        p_hi = incident_pressure_kpa(neq_kg, r_hi)
+        iter_extend += 1
+
+    if not (p_lo >= target_kpa and p_hi <= target_kpa):
+        # If we can't bracket the target, return None to indicate failure
+        return None
+
+    # Bisection loop
+    lo, hi = r_lo, r_hi
+    for _ in range(max_iter):
+        mid = 0.5 * (lo + hi)
+        try:
+            p_mid = incident_pressure_kpa(neq_kg, mid)
+        except Exception:
+            # if res returns None/invalid in extreme near-field, move lo inward
+            lo = max(lo * 0.1, 1e-6)
+            continue
+
+        if abs(p_mid - target_kpa) <= 1e-2:  # ~0.01 kPa tolerance
+            return mid
+        # pressure monotonically decreases with distance: if p_mid > target -> move lo up
+        if p_mid > target_kpa:
+            lo = mid
+        else:
+            hi = mid
+
+        if (hi - lo) < tol:
+            return 0.5 * (lo + hi)
+
+    # if not converged
+    return 0.5 * (lo + hi)
+
+
+def compute_radii_from_energy(E_blast_j: float, thresholds_psi=(2.0, 5.0, 10.0, 20.0)):
+    """
+    Top-level convenience function:
+    - E_blast_j: energy coupled to blast (J)
+    - returns dict: {psi: radius_m}
+    """
+    W = energy_to_kgTNT(E_blast_j)
+    radii = {}
+    for psi in thresholds_psi:
+        R = find_radius_for_overpressure(W, psi)
+        radii[psi] = R
+    return W, radii
+
+
+
+# quick demo example:
+# total E = 1e14 J, assume 30% couples to blast
+E_total = 1e14
+blast_frac = 0.30
+E_blast = E_total * blast_frac
+
+
+#feed this function energy in joules and eta (depends on terrain type)
+#returns a list of tuples (psi, radius in meters) and seismic magnitude
+def impact_damage_radii(kinetic_energy_joules, eta):
+    blast_frac=0.3
+    Wkg, radii = compute_radii_from_energy(E_blast)
+    radius_pressures = []
+    print(f"\nTNT equivalent (kg): {Wkg:.3e} kg ({Wkg/1000:.2f} t)")
+    for psi,r in radii.items():
+        if r is None:
+            radius_pressures.append((psi, None))
+        else:
+            radius_pressures.append((psi, r))
+    return radius_pressures,get_seismic_equivalent(kinetic_energy_joules, eta)
+
+#CHEATSHEET:
+# psi to kPa: multiply by 6.89476
+# 2psi = light structural damage, windows shatter, lots of injuries but fatality rate 0.1%
+# 5psi = moderate/heavy damage, wooden houses collapse, fatality rate ~1-10%
+# 10psi = severe destruction, reinforced concrete falls, houses gone. Fatality rate ~10-50%
+# 20psi = near total destruction, most buildings destroyed. Fatality rate ~50-90%
+
 
