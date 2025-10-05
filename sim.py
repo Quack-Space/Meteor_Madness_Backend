@@ -59,17 +59,15 @@ def compute_closest_approach(p1: List[List[float]], p2: List[List[float]]) -> Tu
     """Return (index, distance_m) of minimum separation for synchronized samples."""
     if not p1 or not p2 or len(p1) != len(p2):
         return -1, float('nan')
-    dmin = float('inf')
-    imin = -1
-    for i, (a, b) in enumerate(zip(p1, p2)):
-        dx = a[0] - b[0]
-        dy = a[1] - b[1]
-        dz = a[2] - b[2]
-        d2 = dx*dx + dy*dy + dz*dz
-        if d2 < dmin:
-            dmin = d2
-            imin = i
+    
+    try:
+        d = lambda a, b: (a[0]-b[0])**2 + (a[1]-b[1])**2 + (a[2]-b[2])**2
+        imin, dmin = min([(i, d(a,b)) for i, (a,b) in enumerate(zip(p1, p2))], key=lambda x: x[1])
+    except ValueError:
+            dmin = float('nan')
+            imin = -1
     return imin, math.sqrt(dmin) if imin >= 0 else float('nan')
+
 
 def earth_spin_metadata() -> dict:
     """Return Earth axial tilt + rotation model constants."""
