@@ -91,26 +91,66 @@ def asteroids_catalog(start: int = 0, limit: int = 200):
 
 @app.get("/asteroids/{obj_id}")
 def asteroid_data(obj_id: str):
-    raw = api.NEO_by_id(NEO, obj_id)
+    # Convert string ID to integer to match database key format
+    try:
+        obj_id_int = int(obj_id)
+    except ValueError:
+        raise HTTPException(status_code=400, detail="Invalid asteroid ID format")
+    
+    raw = api.NEO_by_id(NEO, obj_id_int)
     if raw is None:
         raise HTTPException(status_code=404, detail="Asteroid not found")
     return _map_asteroid(raw)
 
 
 @app.post("/simulate/{obj_id}")
-async def simulate(obj_id: str, preview: bool = True):
+async def simulate(obj_id: str, preview: str = "true"):
+    print(f"DEBUG simulate: obj_id={obj_id}, preview={preview}")
+    is_preview = preview.lower() in ("true", "1", "yes")
+    print(f"DEBUG simulate: converted is_preview={is_preview}")
+
+    # Try direct string key first (since api_calls keeps keys as cleaned strings)
     raw = api.NEO_by_id(NEO, obj_id)
+    attempted_int = None
     if raw is None:
-        raise HTTPException(status_code=404, detail="Asteroid not found")
-    if preview:
-        points = sim.static_orbit(raw)
-        return {"asteroid_trajectory": points}
-    
-    else:
-        job_id = random.randint(10000, 99999)
-        async_results[job_id] = {"done": False, "data": None}
-        asyncio.create_task(sim.full_sim())
-        return {"job_id": str(job_id)}
+        try:
+            attempted_int = int(obj_id)
+            raw = api.NEO_by_id(NEO, attempted_int)
+        except ValueError:
+            attempted_int = None
+    print(f"DEBUG simulate: raw data found: {raw is not None} (attempted_int={attempted_int})")
+    if raw is None:
+        # Provide diagnostic info: sample a few keys
+        sample_keys = list(NEO.keys())[:5]
+        raise HTTPException(status_code=404, detail={
+            "error": "Asteroid not found",
+            "requested": obj_id,
+            "attempted_int": attempted_int,
+            "sample_keys": sample_keys
+        })
+
+    if is_preview:
+        orbit_payload = sim.static_orbit(raw)
+        if isinstance(orbit_payload, dict):
+            return {
+                "asteroid_trajectory": orbit_payload.get("points", []),
+                "orbit_meta": orbit_payload.get("orbit_meta", {})
+            }
+        # backward fallback if function returned legacy list
+        return {"asteroid_trajectory": orbit_payload}
+
+    job_id = random.randint(10000, 99999)
+    async_results[str(job_id)] = {"done": False, "data": None}
+
+    async def _run_full():
+        try:
+            result = await sim.full_sim(raw)
+            async_results[str(job_id)] = {"done": True, "data": result}
+        except Exception as exc:  # pragma: no cover simple diagnostic capture
+            async_results[str(job_id)] = {"done": True, "data": {"error": str(exc)}}
+
+    asyncio.create_task(_run_full())
+    return {"job_id": str(job_id), "status": "started"}
 
 
 @app.get("/reports/{job_id}")

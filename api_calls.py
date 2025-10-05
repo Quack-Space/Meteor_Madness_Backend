@@ -1,5 +1,4 @@
 import requests
-import json
 import numpy as np
 import rasterio
 from rasterio.mask import mask
