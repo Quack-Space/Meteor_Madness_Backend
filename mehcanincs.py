@@ -374,7 +374,7 @@ def estimate_tsunami_amplitude(kinetic_energy_j, impact_angle_deg, water_depth_m
     if kinetic_energy_j <= 0:
         raise ValueError("kinetic_energy_j must be positive")
     
-    mu_km_inv=1e-2  # dissipation coefficient in km^-1 TO BE IMPLEMENTED
+    mu_km_inv=1e-3  # dissipation coefficient in km^-1 TO BE IMPLEMENTED
 
     # impact angle efficiency (angle from horizontal). vertical (90deg) -> sin=1
     theta_rad = np.radians(impact_angle_deg)
@@ -386,11 +386,11 @@ def estimate_tsunami_amplitude(kinetic_energy_j, impact_angle_deg, water_depth_m
     travel_times = {}
     c = np.sqrt(g * max(1.0, water_depth_m))  # shallow-water speed (m/s)
 
-    attenuation_km = tsunami_dissipation_distance(A0=source_amp, r0_km=1.0, A_thresh=0.01, mu_km_inv=mu_km_inv)
+    attenuation_km = tsunami_dissipation_distance(A0=source_amp, r0_km=1.0, A_thresh=0.1, mu_km_inv=mu_km_inv)
     if attenuation_km is None:
         attenuation_km = 10000
     # distances to evaluate
-    distances_km = np.linspace(1.0, attenuation_km, 50)
+    distances_km = np.linspace(1.0, attenuation_km, 100)
 
     def A_of_r(r):
         # avoid r==0
@@ -903,6 +903,7 @@ def damage_coefficients_radii(kinetic_energy_joules, eta):
 # 5psi = moderate/heavy damage, wooden houses collapse, fatality rate ~1-10%
 # 10psi = severe destruction, reinforced concrete falls, houses gone. Fatality rate ~10-50%
 # 20psi = near total destruction, most buildings destroyed. Fatality rate ~50-90%
+
 
 
 
